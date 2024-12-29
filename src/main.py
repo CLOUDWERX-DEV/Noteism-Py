@@ -1078,50 +1078,181 @@ class NoteismMarkdownEditor(QMainWindow):
         self.preview_view.setHtml(full_html)
 
     def create_menu_bar(self):
-        menu_bar = self.menuBar()
+        menubar = self.menuBar()
         
         # File Menu
-        file_menu = menu_bar.addMenu("&File")
-        new_action = QAction("New", self)
-        new_action.setShortcut(QKeySequence.New)
-        file_menu.addAction(new_action)
+        file_menu = menubar.addMenu("&File")
         
-        open_action = QAction("Open", self)
-        open_action.setShortcut(QKeySequence.Open)
-        file_menu.addAction(open_action)
+        # New File Action
+        new_file_action = QAction("New", self)
+        new_file_action.setShortcut("Ctrl+N")
+        new_file_action.triggered.connect(self.create_new_tab)
+        file_menu.addAction(new_file_action)
         
-        save_action = QAction("Save", self)
-        save_action.setShortcut(QKeySequence.Save)
-        file_menu.addAction(save_action)
+        # Open File Action
+        open_file_action = QAction("Open", self)
+        open_file_action.setShortcut("Ctrl+O")
+        open_file_action.triggered.connect(self.open_file)
+        file_menu.addAction(open_file_action)
         
-        # Edit Menu
-        edit_menu = menu_bar.addMenu("&Edit")
-        undo_action = QAction("Undo", self)
-        undo_action.setShortcut(QKeySequence.Undo)
-        edit_menu.addAction(undo_action)
+        # Save File Action
+        save_file_action = QAction("Save", self)
+        save_file_action.setShortcut("Ctrl+S")
+        save_file_action.triggered.connect(self.save_current_file)
+        file_menu.addAction(save_file_action)
         
-        redo_action = QAction("Redo", self)
-        redo_action.setShortcut(QKeySequence.Redo)
-        edit_menu.addAction(redo_action)
+        # Save As Action
+        save_as_action = QAction("Save As", self)
+        save_as_action.setShortcut("Ctrl+Shift+S")
+        save_as_action.triggered.connect(self.save_file_as)
+        file_menu.addAction(save_as_action)
         
-        # View Menu
-        view_menu = menu_bar.addMenu("&View")
+        # Close Tab Action
+        close_tab_action = QAction("Close Tab", self)
+        close_tab_action.setShortcut("Ctrl+W")
+        close_tab_action.triggered.connect(self.close_current_tab)
+        file_menu.addAction(close_tab_action)
         
-        # Add Theme Menu
-        theme_menu = menu_bar.addMenu("&Theme")
+        # Exit Action
+        exit_action = QAction("Exit", self)
+        exit_action.setShortcut("Alt+F4")
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+    
+    def open_file(self):
+        """Open an existing markdown file"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Open Markdown File", 
+            self.current_root,  # Use the markdown directory as default
+            "Markdown Files (*.md);;All Files (*)"
+        )
         
-        # Create theme actions
-        theme_group = QActionGroup(self)
-        theme_group.setExclusive(True)
+        if file_path:
+            # Check if file is already open
+            for i in range(self.editor_tabs.count()):
+                if self.editor_tabs.tabToolTip(i) == file_path:
+                    # Activate existing tab
+                    self.editor_tabs.setCurrentIndex(i)
+                    return
+            
+            # Read file contents
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    content = file.read()
+                
+                # Create new tab
+                editor = self.create_new_tab()
+                editor.setPlainText(content)
+                
+                # Add tab with filename and full path as tooltip
+                tab_index = self.editor_tabs.addTab(
+                    editor, 
+                    os.path.basename(file_path)
+                )
+                self.editor_tabs.setTabToolTip(tab_index, file_path)
+                
+                # Set current tab
+                self.editor_tabs.setCurrentIndex(tab_index)
+            
+            except Exception as e:
+                QMessageBox.warning(
+                    self, 
+                    "Error", 
+                    f"Could not open file: {str(e)}"
+                )
+    
+    def save_current_file(self):
+        """Save the current file"""
+        current_index = self.editor_tabs.currentIndex()
+        if current_index == -1:
+            return
         
-        for theme_name in ThemeManager.THEMES.keys():
-            theme_action = QAction(theme_name, self, checkable=True)
-            theme_action.setChecked(theme_name == 'Neon Dark')  # Default theme
-            theme_action.triggered.connect(
-                lambda checked, name=theme_name: self.theme_manager.apply_theme(name)
-            )
-            theme_menu.addAction(theme_action)
-            theme_group.addAction(theme_action)
+        current_editor = self.editor_tabs.widget(current_index)
+        current_file_path = self.editor_tabs.tabToolTip(current_index)
+        
+        if current_file_path:
+            # Existing file, save directly
+            try:
+                with open(current_file_path, 'w', encoding='utf-8') as file:
+                    file.write(current_editor.toPlainText())
+                
+                # Update tab name to reflect saved state
+                self.editor_tabs.setTabText(
+                    current_index, 
+                    os.path.basename(current_file_path)
+                )
+            except Exception as e:
+                QMessageBox.warning(
+                    self, 
+                    "Error", 
+                    f"Could not save file: {str(e)}"
+                )
+        else:
+            # No existing file, call save as
+            self.save_file_as()
+    
+    def save_file_as(self):
+        """Save the current file with a new name"""
+        current_index = self.editor_tabs.currentIndex()
+        if current_index == -1:
+            return
+        
+        current_editor = self.editor_tabs.widget(current_index)
+        
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Save Markdown File", 
+            os.path.join(self.current_root, "new_file.md"),
+            "Markdown Files (*.md);;All Files (*)"
+        )
+        
+        if file_path:
+            # Ensure .md extension
+            if not file_path.lower().endswith('.md'):
+                file_path += '.md'
+            
+            try:
+                with open(file_path, 'w', encoding='utf-8') as file:
+                    file.write(current_editor.toPlainText())
+                
+                # Update tab with new filename and path
+                self.editor_tabs.setTabText(
+                    current_index, 
+                    os.path.basename(file_path)
+                )
+                self.editor_tabs.setTabToolTip(current_index, file_path)
+            
+            except Exception as e:
+                QMessageBox.warning(
+                    self, 
+                    "Error", 
+                    f"Could not save file: {str(e)}"
+                )
+    
+    def close_current_tab(self):
+        """Close the current tab"""
+        current_index = self.editor_tabs.currentIndex()
+        if current_index != -1:
+            # Check if file is modified
+            current_editor = self.editor_tabs.widget(current_index)
+            
+            # If the file has unsaved changes, prompt for save
+            if current_editor.document().isModified():
+                reply = QMessageBox.question(
+                    self, 
+                    'Save Changes', 
+                    'Do you want to save changes before closing?',
+                    QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
+                )
+                
+                if reply == QMessageBox.Save:
+                    self.save_current_file()
+                elif reply == QMessageBox.Cancel:
+                    return
+            
+            # Close the tab
+            self.editor_tabs.removeTab(current_index)
     
     def create_toolbar(self):
         toolbar = QToolBar("Markdown Formatting")
