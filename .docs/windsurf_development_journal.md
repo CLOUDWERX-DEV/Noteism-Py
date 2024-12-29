@@ -314,6 +314,44 @@
 - Develop advanced preview features
 - Implement user theme customization
 
+## 2024-12-29 Enhanced Markdown Rendering
+
+#### Rendering Improvements
+- Implemented advanced CSS styling for markdown preview
+- Created a more visually appealing and readable rendering
+- Enhanced syntax highlighting with a modern color scheme
+- Improved typography and layout
+
+#### Key Design Elements
+- Custom font stack with Inter and system fonts
+- Dark theme with neon-inspired color palette
+- Responsive and clean typography
+- Advanced code block styling
+
+#### Styling Features
+- Dynamic heading styles with neon blue accents
+- Improved link and code block appearances
+- Gradient horizontal rules
+- Enhanced table formatting
+- Sophisticated syntax highlighting
+
+#### Technical Enhancements
+- Added multiple markdown extensions
+- Implemented flexible CSS styling
+- Created a more immersive reading experience
+- Maintained performance and readability
+
+#### Syntax Highlighting
+- Custom color scheme for code elements
+- Support for multiple programming languages
+- Clear differentiation between code types
+
+#### Next Development Steps
+- Create theme-specific rendering styles
+- Add custom syntax highlighting themes
+- Implement user-configurable rendering options
+- Develop advanced code block features
+
 ## 2024-12-29 Rendering Pane Dark Theme Consistency
 
 #### Theme Stability Improvements
@@ -576,23 +614,21 @@
   - Dracula
 
 #### Technical Implementation
-- Centralized theme configuration
-- Dynamic stylesheet updates
-- Consistent styling across components
-- Exclusive theme selection
+- Used QActionGroup for exclusive theme selection
+- Implemented dynamic theme application
+- Preserved existing theme management logic
+- Seamless user experience for theme switching
 
-#### Styling Approach
-- Global palette management
-- Component-specific style updates
-- Preservation of design consistency
-- Minimal performance overhead
+#### User Experience
+- Intuitive menu-based theme selection
+- Real-time theme preview
+- Persistent theme state
 
 #### Next Development Steps
-- Create custom theme creator
 - Implement theme persistence
+- Create theme import/export functionality
+- Develop custom theme creator
 - Add more theme variations
-- Develop advanced color customization
-- Create theme preview functionality
 
 ## 2024-12-29 Import Management Refinement
 
@@ -691,6 +727,227 @@
 - Add theme customization options
 - Implement theme persistence
 - Create theme import/export functionality
+
+## 2024-12-29 Comprehensive Settings Menu Implementation
+
+#### Settings Menu Features
+- Added extensive settings menu to menu bar
+- Implemented multiple configuration options
+- Created granular control over editor and markdown settings
+
+#### Editor Settings
+- Font Family Selection
+  - Inter
+  - Fira Code
+  - Roboto Mono
+  - Source Code Pro
+  - JetBrains Mono
+- Font Size Customization (8-32 pt)
+- Line Spacing Options
+- Tab Width Configuration
+
+#### Markdown Settings
+- Preview Style Selection
+  - Default
+  - Minimal
+  - Academic
+  - Modern
+  - Classic
+
+#### Auto Save Functionality
+- Configurable auto-save intervals
+- Options:
+  - Disabled
+  - 5 Minutes
+  - 10 Minutes
+  - 15 Minutes
+  - 30 Minutes
+
+#### Preferences Dialog
+- Tabbed interface for settings
+- Comprehensive configuration options
+- User-friendly design
+
+#### Technical Implementation
+- Used QActionGroup for exclusive selections
+- Implemented dynamic settings application
+- Created flexible configuration methods
+
+#### Next Development Steps
+- Persist user settings
+- Create settings export/import
+- Develop more granular configuration options
+- Implement settings synchronization
+
+## 2024-12-29 Markdown Preview Styles Implementation
+
+#### Preview Style Features
+- Added comprehensive markdown preview styles
+- Implemented 5 distinct visual themes
+- Created dynamic CSS-based rendering
+
+#### Available Styles
+1. **Default**: Dark neon-inspired theme
+2. **Minimal**: Clean and minimalistic design
+3. **Academic**: Professional, scholarly appearance
+4. **Modern**: Contemporary dark mode aesthetic
+5. **Classic**: Traditional, serif-based styling
+
+#### Technical Highlights
+- Flexible CSS generation
+- Syntax highlighting support
+- Responsive typography
+- Cross-theme consistency
+- Performance-optimized rendering
+
+#### Style Customization
+- Base CSS shared across themes
+- Style-specific color schemes
+- Adaptive font and layout settings
+- Syntax highlighting integration
+
+#### Rendering Enhancements
+- Advanced markdown extensions
+- Code block styling
+- Typography refinements
+- Responsive design principles
+
+#### Next Development Steps
+- Create user-defined theme editor
+- Implement theme import/export
+- Develop more preview style options
+- Add live preview style switching
+
+## 2024-12-29 File Open Functionality Enhancement
+
+#### File Management Improvements
+- Added `current_root` directory attribute
+- Created default Noteism documents directory
+- Enhanced file opening mechanism
+- Implemented robust file path tracking
+
+#### Key Enhancements
+- Automatic documents directory creation
+- Prevent duplicate file tab opening
+- Store file path as editor property
+- Improved error handling during file open
+
+#### Technical Details
+- Uses `os.path.expanduser('~')` for cross-platform compatibility
+- Creates 'Noteism' subdirectory in user's Documents folder
+- Adds file path tracking to prevent multiple tabs for same file
+- Provides user-friendly error messages
+
+#### Directory Management
+- Default path: `~/Documents/Noteism`
+- Ensures directory exists before file operations
+- Supports dynamic document storage location
+
+#### Next Development Steps
+- Implement recent files tracking
+- Add file path customization
+- Create advanced file management features
+- Develop file synchronization mechanism
+
+## 2024-12-29 Theme Switcher Integration
+
+#### Theme Management Enhancements
+- Added comprehensive theme switcher to settings menu
+- Integrated existing theme options
+- Created dynamic theme selection mechanism
+
+#### Available Themes
+1. Neon Dark (Default)
+2. Classic Light
+3. Solarized
+4. Dracula
+
+#### Technical Implementation
+- Used QActionGroup for exclusive theme selection
+- Implemented dynamic theme application
+- Preserved existing theme management logic
+- Seamless user experience for theme switching
+
+#### User Experience
+- Intuitive menu-based theme selection
+- Real-time theme preview
+- Persistent theme state
+
+#### Next Development Steps
+- Implement theme persistence
+- Create theme import/export functionality
+- Develop custom theme creator
+- Add more theme variations
+
+## 2024-12-29 Settings Persistence and Full Implementation
+
+#### Configuration Management
+- Added comprehensive settings persistence
+- Implemented QSettings for configuration storage
+- Created methods to apply and restore settings across application
+
+#### Key Features
+- Font family persistence
+- Font size customization
+- Tab width configuration
+- Auto-save interval management
+- Markdown preview style selection
+- Theme persistence
+
+#### Technical Highlights
+- Dynamic settings application
+- Cross-session configuration retention
+- Minimal performance overhead
+- Flexible configuration mechanism
+
+#### Persistence Mechanism
+- Uses QSettings for cross-platform configuration storage
+- Stores settings with hierarchical key structure
+- Supports default value fallback
+- Applies settings asynchronously to prevent initialization delays
+
+#### User Experience Improvements
+- Seamless settings restoration
+- Consistent application state across sessions
+- Intuitive settings management
+- Real-time configuration updates
+
+#### Next Development Steps
+- Implement advanced configuration export/import
+- Create user-defined preset management
+- Develop more granular configuration options
+- Add configuration validation and migration support
+
+## 2024-12-29 Dynamic Markdown Rendering Font
+
+#### Rendering Enhancements
+- Synchronized editor and preview font settings
+- Dynamic font family and size extraction
+- Real-time preview font updates
+
+#### Technical Implementation
+- Extract current editor font dynamically
+- Apply editor font to markdown preview
+- Preserve style-specific CSS characteristics
+- Maintain responsive typography
+
+#### Key Features
+- Font family inheritance
+- Point size synchronization
+- Fallback font stack preservation
+- Cross-theme font consistency
+
+#### User Experience Improvements
+- Consistent typography across editor and preview
+- Instant font change reflection
+- Minimal performance overhead
+- Intuitive font management
+
+#### Next Development Steps
+- Create advanced font preview
+- Develop custom font selection dialog
+- Implement font weight and style synchronization
+- Add more font rendering options
 
 ---
 Made with ❤️ by CLOUDWERX LAB

@@ -11,7 +11,7 @@ from pygments.formatters import HtmlFormatter
 
 # PyQt5 Core Imports
 from PyQt5.QtCore import (
-    Qt, pyqtSignal, QTimer, QDir, QModelIndex, QSize, QUrl
+    Qt, pyqtSignal, QTimer, QDir, QModelIndex, QSize, QUrl, QSettings
 )
 
 # PyQt5 Widgets Imports
@@ -22,7 +22,7 @@ from PyQt5.QtWidgets import (
     QInputDialog, QLabel, QStatusBar, QListWidget, QListWidgetItem, 
     QDialog, QFormLayout, QDialogButtonBox, QLineEdit, QPushButton, 
     QFileSystemModel, QAbstractItemView, QFileDialog, QToolButton,
-    QActionGroup
+    QActionGroup, QComboBox, QSpinBox
 )
 
 # PyQt5 Web Engine Imports
@@ -760,6 +760,16 @@ class NoteismMarkdownEditor(QMainWindow):
         self.setWindowTitle("Noteism - Markdown Editor")
         self.resize(1600, 900)
         
+        # Set current root directory
+        self.current_root = os.path.join(
+            os.path.expanduser('~'), 
+            'Documents', 
+            'Noteism'
+        )
+        
+        # Create documents directory if it doesn't exist
+        os.makedirs(self.current_root, exist_ok=True)
+        
         # Initialize theme manager
         self.theme_manager = ThemeManager(self)
         
@@ -930,6 +940,100 @@ class NoteismMarkdownEditor(QMainWindow):
         
         # Connect signals
         self.current_editor().textChanged.connect(self.update_preview)
+        
+        # Initialize QSettings for persistent configuration
+        self.settings = QSettings('CloudWerx Lab', 'Noteism')
+        
+        # Restore previous settings
+        self.restore_settings()
+        
+    def change_font_family(self, font_name):
+        """Change font family for all open editors"""
+        font = QFont(font_name)
+        
+        for i in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(i)
+            editor.setFont(font)
+        
+        # Persist font preference
+        self.settings.setValue("editor/font_family", font_name)
+    
+    def change_font_size(self, size):
+        """Change font size for all open editors"""
+        for i in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(i)
+            current_font = editor.font()
+            current_font.setPointSize(size)
+            editor.setFont(current_font)
+        
+        # Persist font size preference
+        self.settings.setValue("editor/font_size", size)
+    
+    def set_tab_width(self, width):
+        """Set tab width for all open editors"""
+        for i in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(i)
+            editor.setTabStopDistance(width * 10)  # Approximate pixel width
+        
+        # Persist tab width preference
+        self.settings.setValue("editor/tab_width", width)
+    
+    def set_auto_save_interval(self, interval):
+        """Set auto save interval and start/stop timer"""
+        # Stop existing timer if it exists
+        if hasattr(self, 'auto_save_timer'):
+            self.auto_save_timer.stop()
+        
+        # If interval is 0, auto-save is disabled
+        if interval > 0:
+            # Create or recreate timer
+            self.auto_save_timer = QTimer(self)
+            self.auto_save_timer.timeout.connect(self.auto_save)
+            self.auto_save_timer.start(interval * 60 * 1000)  # Convert minutes to milliseconds
+        
+        # Persist auto-save preference
+        self.settings.setValue("editor/auto_save_interval", interval)
+    
+    def auto_save(self):
+        """Automatically save all modified files"""
+        for i in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(i)
+            file_path = editor.property("file_path")
+            
+            # Check if file has been saved before and is modified
+            if file_path and editor.document().isModified():
+                try:
+                    with open(file_path, 'w', encoding='utf-8') as file:
+                        file.write(editor.toPlainText())
+                    
+                    # Mark document as not modified after saving
+                    editor.document().setModified(False)
+                    
+                    # Show status message
+                    self.statusBar().showMessage(f"Auto-saved: {os.path.basename(file_path)}", 2000)
+                except Exception as e:
+                    # Show error if auto-save fails
+                    self.statusBar().showMessage(f"Auto-save failed: {str(e)}", 3000)
+    
+    def restore_settings(self):
+        """Restore previously saved application settings"""
+        # Restore font family
+        font_family = self.settings.value("editor/font_family", "Inter")
+        font_size = self.settings.value("editor/font_size", 12, type=int)
+        tab_width = self.settings.value("editor/tab_width", 4, type=int)
+        auto_save_interval = self.settings.value("editor/auto_save_interval", 0, type=int)
+        preview_style = self.settings.value("markdown/preview_style", "Default")
+        theme = self.settings.value("application/theme", "Neon Dark")
+        
+        # These methods will be called after initialization to apply saved settings
+        QTimer.singleShot(0, lambda: [
+            self.change_font_family(font_family),
+            self.change_font_size(font_size),
+            self.set_tab_width(tab_width),
+            self.set_auto_save_interval(auto_save_interval),
+            self.change_preview_style(preview_style),
+            self.theme_manager.apply_theme(theme)
+        ])
     
     def create_new_tab(self, file_path=None):
         """Create a new markdown editor tab"""
@@ -977,6 +1081,7 @@ class NoteismMarkdownEditor(QMainWindow):
             for i in range(self.editor_tabs.count()):
                 editor = self.editor_tabs.widget(i)
                 if editor.property("file_path") == file_path:
+                    # Activate existing tab
                     self.editor_tabs.setCurrentIndex(i)
                     return
             
@@ -1047,7 +1152,7 @@ class NoteismMarkdownEditor(QMainWindow):
                 h1, h2, h3 {{ 
                     color: {NeonPalette.NEON_BLUE} !important; 
                     border-bottom: 1px solid {NeonPalette.NEON_BLUE};
-                    padding-bottom: 10px;
+                    padding-bottom: 0.3em;
                 }}
                 a {{ 
                     color: {NeonPalette.ACCENT_BLUE} !important; 
@@ -1077,6 +1182,270 @@ class NoteismMarkdownEditor(QMainWindow):
         
         self.preview_view.setHtml(full_html)
 
+    def generate_markdown_html(self, markdown_text, style='Default'):
+        """
+        Generate a stylized HTML rendering of markdown text with multiple style options
+        """
+        # Get current editor font
+        current_editor = self.current_editor()
+        current_font = current_editor.font()
+        font_family = current_font.family()
+        font_size = current_font.pointSize()
+        
+        # Base CSS for all styles
+        base_css = f"""
+        body {{
+            font-family: '{font_family}', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-size: {font_size}pt;
+        }}
+        """
+        
+        # Style-specific CSS
+        style_css = {
+            'Default': """
+            body {
+                background-color: #121212;
+                color: #e0e0e0;
+            }
+            h1, h2, h3, h4, h5, h6 { 
+                color: #3498db; 
+                border-bottom: 1px solid rgba(52, 152, 219, 0.2);
+                padding-bottom: 0.3em;
+            }
+            a { color: #4ecdc4; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            code { 
+                background-color: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+                padding: 0.2em 0.4em;
+            }
+            pre { 
+                background-color: #1e1e1e;
+                border-radius: 6px;
+                padding: 15px;
+                overflow-x: auto;
+            }
+            blockquote {
+                border-left: 4px solid #3498db;
+                margin: 1.5em 0;
+                padding-left: 15px;
+                font-style: italic;
+                color: #a0a0a0;
+            }
+            """,
+            
+            'Minimal': """
+            body {
+                background-color: #f4f4f4;
+                color: #333;
+                font-weight: 300;
+            }
+            h1, h2, h3, h4, h5, h6 { 
+                color: #2c3e50; 
+                font-weight: 300;
+                border-bottom: 1px solid rgba(0,0,0,0.1);
+            }
+            a { color: #3498db; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            code { 
+                background-color: rgba(0,0,0,0.05);
+                border-radius: 3px;
+                padding: 0.2em 0.4em;
+                font-size: 0.9em;
+            }
+            pre { 
+                background-color: #f8f8f8;
+                border: 1px solid #e9e9e9;
+                border-radius: 4px;
+                padding: 15px;
+            }
+            blockquote {
+                border-left: 3px solid #3498db;
+                margin: 1.5em 0;
+                padding-left: 15px;
+                color: #777;
+                font-style: italic;
+            }
+            """,
+            
+            'Academic': """
+            body {
+                background-color: #ffffff;
+                color: #2c3e50;
+                max-width: 700px;
+            }
+            h1, h2, h3, h4, h5, h6 { 
+                color: #2980b9; 
+                font-weight: 500;
+                border-bottom: 1px solid rgba(41, 128, 185, 0.2);
+                padding-bottom: 0.3em;
+            }
+            a { color: #2980b9; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            code { 
+                background-color: #f8f8f8;
+                border: 1px solid #e9e9e9;
+                border-radius: 3px;
+                padding: 0.2em 0.4em;
+                font-family: 'Courier New', monospace;
+            }
+            pre { 
+                background-color: #f8f8f8;
+                border: 1px solid #e9e9e9;
+                border-radius: 4px;
+                padding: 15px;
+            }
+            blockquote {
+                border-left: 3px solid #2980b9;
+                margin: 1.5em 0;
+                padding-left: 15px;
+                color: #666;
+                font-style: italic;
+            }
+            """,
+            
+            'Modern': """
+            body {
+                background-color: #1a1a2e;
+                color: #e0e0e0;
+                font-weight: 300;
+            }
+            h1, h2, h3, h4, h5, h6 { 
+                color: #4ecdc4; 
+                font-weight: 400;
+                border-bottom: 1px solid rgba(78, 205, 196, 0.2);
+                padding-bottom: 0.3em;
+            }
+            a { color: #4ecdc4; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            code { 
+                background-color: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+                padding: 0.2em 0.4em;
+                font-family: 'Fira Code', monospace;
+            }
+            pre { 
+                background-color: #16213e;
+                border-radius: 6px;
+                padding: 15px;
+                border: 1px solid rgba(78, 205, 196, 0.1);
+            }
+            blockquote {
+                border-left: 4px solid #4ecdc4;
+                margin: 1.5em 0;
+                padding-left: 15px;
+                color: #a0a0a0;
+                font-style: italic;
+            }
+            """,
+            
+            'Classic': """
+            body {
+                background-color: #f5f5f5;
+                color: #333;
+                font-family: Georgia, serif;
+                max-width: 750px;
+            }
+            h1, h2, h3, h4, h5, h6 { 
+                color: #2c3e50; 
+                font-family: 'Palatino Linotype', serif;
+                border-bottom: 1px solid rgba(0,0,0,0.1);
+                padding-bottom: 0.3em;
+            }
+            a { color: #2980b9; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            code { 
+                background-color: #f8f8f8;
+                border: 1px solid #e9e9e9;
+                border-radius: 3px;
+                padding: 0.2em 0.4em;
+                font-family: Consolas, monospace;
+            }
+            pre { 
+                background-color: #f8f8f8;
+                border: 1px solid #e9e9e9;
+                border-radius: 4px;
+                padding: 15px;
+                font-family: Consolas, monospace;
+            }
+            blockquote {
+                border-left: 3px solid #2980b9;
+                margin: 1.5em 0;
+                padding-left: 15px;
+                color: #666;
+                font-style: italic;
+            }
+            """
+        }
+        
+        # Syntax Highlighting CSS
+        syntax_css = """
+        /* Syntax Highlighting */
+        .highlight .k  { color: #ff79c6; }  /* Keyword */
+        .highlight .kt { color: #8be9fd; }  /* Keyword Type */
+        .highlight .n  { color: #f8f8f2; }  /* Name */
+        .highlight .s  { color: #f1fa8c; }  /* String */
+        .highlight .m  { color: #bd93f9; }  /* Number */
+        .highlight .c  { color: #6272a4; }  /* Comment */
+        .highlight .o  { color: #ff79c6; }  /* Operator */
+        .highlight .p  { color: #f8f8f2; }  /* Punctuation */
+        """
+        
+        # Combine CSS
+        full_css = base_css + (style_css.get(style, style_css['Default']) + syntax_css)
+        
+        # Convert markdown to HTML
+        html_content = markdown.markdown(
+            markdown_text, 
+            extensions=[
+                'markdown.extensions.extra', 
+                'markdown.extensions.codehilite', 
+                'markdown.extensions.toc',
+                'markdown.extensions.tables',
+                'markdown.extensions.fenced_code'
+            ],
+            extension_configs={
+                'markdown.extensions.codehilite': {
+                    'css_class': 'highlight',
+                    'linenums': False,
+                    'guess_lang': False
+                }
+            }
+        )
+        
+        # Combine CSS and HTML content
+        full_html = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>{full_css}</style>
+        </head>
+        <body>
+            {html_content}
+        </body>
+        </html>
+        """
+        
+        return full_html
+    
+    def change_preview_style(self, style):
+        """Change markdown preview style"""
+        # Regenerate preview for all open tabs
+        for i in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(i)
+            markdown_text = editor.toPlainText()
+            preview_html = self.generate_markdown_html(markdown_text, style)
+            self.preview_view.setHtml(preview_html)
+        
+        # Persist preview style preference
+        self.settings.setValue("markdown/preview_style", style)
+    
     def create_menu_bar(self):
         menubar = self.menuBar()
         
@@ -1134,6 +1503,230 @@ class NoteismMarkdownEditor(QMainWindow):
             )
             theme_menu.addAction(theme_action)
             theme_group.addAction(theme_action)
+        
+        # Settings Menu
+        settings_menu = menubar.addMenu("&Settings")
+        
+        # Editor Settings Submenu
+        editor_settings_menu = settings_menu.addMenu("Editor")
+        
+        # Font Settings
+        font_menu = editor_settings_menu.addMenu("Font")
+        
+        # Font Family
+        font_family_group = QActionGroup(self)
+        font_family_group.setExclusive(True)
+        font_families = [
+            "Inter", 
+            "Fira Code", 
+            "Roboto Mono", 
+            "Source Code Pro", 
+            "JetBrains Mono"
+        ]
+        for family in font_families:
+            font_action = QAction(family, self, checkable=True)
+            font_action.setChecked(family == "Inter")
+            font_action.triggered.connect(
+                lambda checked, f=family: self.change_font_family(f)
+            )
+            font_menu.addAction(font_action)
+            font_family_group.addAction(font_action)
+        
+        # Font Size
+        font_size_menu = editor_settings_menu.addMenu("Font Size")
+        font_sizes = [10, 12, 14, 16, 18, 20]
+        font_size_group = QActionGroup(self)
+        font_size_group.setExclusive(True)
+        for size in font_sizes:
+            size_action = QAction(f"{size} pt", self, checkable=True)
+            size_action.setChecked(size == 14)
+            size_action.triggered.connect(
+                lambda checked, s=size: self.change_font_size(s)
+            )
+            font_size_menu.addAction(size_action)
+            font_size_group.addAction(size_action)
+        
+        # Line Spacing
+        line_spacing_menu = editor_settings_menu.addMenu("Line Spacing")
+        line_spacings = [1.0, 1.2, 1.5, 2.0]
+        line_spacing_group = QActionGroup(self)
+        line_spacing_group.setExclusive(True)
+        for spacing in line_spacings:
+            spacing_action = QAction(f"{spacing}x", self, checkable=True)
+            spacing_action.setChecked(spacing == 1.5)
+            spacing_action.triggered.connect(
+                lambda checked, sp=spacing: self.change_line_spacing(sp)
+            )
+            line_spacing_menu.addAction(spacing_action)
+            line_spacing_group.addAction(spacing_action)
+        
+        # Tab Settings
+        tab_settings_menu = editor_settings_menu.addMenu("Tabs")
+        
+        # Tab Width
+        tab_width_menu = tab_settings_menu.addMenu("Tab Width")
+        tab_widths = [2, 4, 8]
+        tab_width_group = QActionGroup(self)
+        tab_width_group.setExclusive(True)
+        for width in tab_widths:
+            width_action = QAction(f"{width} spaces", self, checkable=True)
+            width_action.setChecked(width == 4)
+            width_action.triggered.connect(
+                lambda checked, w=width: self.set_tab_width(w)
+            )
+            tab_width_menu.addAction(width_action)
+            tab_width_group.addAction(width_action)
+        
+        # Markdown Settings Submenu
+        markdown_settings_menu = settings_menu.addMenu("Markdown")
+        
+        # Preview Style
+        preview_style_menu = markdown_settings_menu.addMenu("Preview Style")
+        preview_styles = [
+            "Default", 
+            "Minimal", 
+            "Academic", 
+            "Modern", 
+            "Classic"
+        ]
+        preview_style_group = QActionGroup(self)
+        preview_style_group.setExclusive(True)
+        for style in preview_styles:
+            style_action = QAction(style, self, checkable=True)
+            style_action.setChecked(style == "Default")
+            style_action.triggered.connect(
+                lambda checked, st=style: self.change_preview_style(st)
+            )
+            preview_style_menu.addAction(style_action)
+            preview_style_group.addAction(style_action)
+        
+        # Auto Save Settings
+        auto_save_menu = settings_menu.addMenu("Auto Save")
+        auto_save_intervals = [
+            ("Disabled", 0),
+            ("5 Minutes", 5),
+            ("10 Minutes", 10),
+            ("15 Minutes", 15),
+            ("30 Minutes", 30)
+        ]
+        auto_save_group = QActionGroup(self)
+        auto_save_group.setExclusive(True)
+        for label, interval in auto_save_intervals:
+            auto_save_action = QAction(label, self, checkable=True)
+            auto_save_action.setChecked(interval == 10)
+            auto_save_action.triggered.connect(
+                lambda checked, inv=interval: self.set_auto_save_interval(inv)
+            )
+            auto_save_menu.addAction(auto_save_action)
+            auto_save_group.addAction(auto_save_action)
+        
+        # Preferences Action
+        preferences_action = QAction("Preferences", self)
+        preferences_action.triggered.connect(self.open_preferences_dialog)
+        settings_menu.addAction(preferences_action)
+    
+    def change_line_spacing(self, line_spacing):
+        """Change editor line spacing"""
+        for i in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(i)
+            cursor_format = QTextBlockFormat()
+            cursor_format.setLineHeight(
+                line_spacing * 100, 
+                QTextBlockFormat.LineDistancePercent
+            )
+            cursor = editor.textCursor()
+            cursor.select(QTextCursor.Document)
+            cursor.setBlockFormat(cursor_format)
+            editor.setTextCursor(cursor)
+    
+    def set_auto_save_interval(self, interval):
+        """Set auto save interval"""
+        if interval > 0:
+            self.status_update_timer.stop()
+            self.status_update_timer.setInterval(interval * 60 * 1000)  # Convert to milliseconds
+            self.status_update_timer.start()
+        else:
+            self.status_update_timer.stop()
+    
+    def open_preferences_dialog(self):
+        """Open a comprehensive preferences dialog"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Noteism Preferences")
+        dialog.setMinimumSize(600, 500)
+        
+        layout = QVBoxLayout()
+        
+        # Tabs for different preference sections
+        tab_widget = QTabWidget()
+        
+        # Editor Tab
+        editor_tab = QWidget()
+        editor_layout = QFormLayout()
+        
+        # Font Selection
+        font_combo = QComboBox()
+        font_combo.addItems([
+            "Inter", "Fira Code", "Roboto Mono", 
+            "Source Code Pro", "JetBrains Mono"
+        ])
+        editor_layout.addRow("Font Family:", font_combo)
+        
+        # Font Size
+        font_size_spin = QSpinBox()
+        font_size_spin.setRange(8, 32)
+        font_size_spin.setValue(14)
+        editor_layout.addRow("Font Size:", font_size_spin)
+        
+        # Line Spacing
+        line_spacing_combo = QComboBox()
+        line_spacing_combo.addItems(["1.0x", "1.2x", "1.5x", "2.0x"])
+        line_spacing_combo.setCurrentText("1.5x")
+        editor_layout.addRow("Line Spacing:", line_spacing_combo)
+        
+        editor_tab.setLayout(editor_layout)
+        tab_widget.addTab(editor_tab, "Editor")
+        
+        # Markdown Tab
+        markdown_tab = QWidget()
+        markdown_layout = QFormLayout()
+        
+        # Preview Style
+        preview_style_combo = QComboBox()
+        preview_style_combo.addItems([
+            "Default", "Minimal", "Academic", "Modern", "Classic"
+        ])
+        markdown_layout.addRow("Preview Style:", preview_style_combo)
+        
+        markdown_tab.setLayout(markdown_layout)
+        tab_widget.addTab(markdown_tab, "Markdown")
+        
+        # Auto Save Tab
+        autosave_tab = QWidget()
+        autosave_layout = QFormLayout()
+        
+        # Auto Save Interval
+        autosave_combo = QComboBox()
+        autosave_combo.addItems([
+            "Disabled", "5 Minutes", "10 Minutes", 
+            "15 Minutes", "30 Minutes"
+        ])
+        autosave_layout.addRow("Auto Save Interval:", autosave_combo)
+        
+        autosave_tab.setLayout(autosave_layout)
+        tab_widget.addTab(autosave_tab, "Auto Save")
+        
+        layout.addWidget(tab_widget)
+        
+        # Buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+        
+        dialog.setLayout(layout)
+        dialog.exec_()
     
     def open_file(self):
         """Open an existing markdown file"""
@@ -1147,7 +1740,8 @@ class NoteismMarkdownEditor(QMainWindow):
         if file_path:
             # Check if file is already open
             for i in range(self.editor_tabs.count()):
-                if self.editor_tabs.tabToolTip(i) == file_path:
+                editor = self.editor_tabs.widget(i)
+                if editor.property("file_path") == file_path:
                     # Activate existing tab
                     self.editor_tabs.setCurrentIndex(i)
                     return
@@ -1160,6 +1754,9 @@ class NoteismMarkdownEditor(QMainWindow):
                 # Create new tab
                 editor = self.create_new_tab()
                 editor.setPlainText(content)
+                
+                # Set file path as a property of the editor
+                editor.setProperty("file_path", file_path)
                 
                 # Add tab with filename and full path as tooltip
                 tab_index = self.editor_tabs.addTab(
