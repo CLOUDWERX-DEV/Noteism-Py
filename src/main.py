@@ -1118,6 +1118,22 @@ class NoteismMarkdownEditor(QMainWindow):
         exit_action.setShortcut("Alt+F4")
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        # Theme Menu
+        theme_menu = menubar.addMenu("&Theme")
+        
+        # Create theme actions
+        theme_group = QActionGroup(self)
+        theme_group.setExclusive(True)
+        
+        for theme_name in ThemeManager.THEMES.keys():
+            theme_action = QAction(theme_name, self, checkable=True)
+            theme_action.setChecked(theme_name == 'Neon Dark')  # Default theme
+            theme_action.triggered.connect(
+                lambda checked, name=theme_name: self.theme_manager.apply_theme(name)
+            )
+            theme_menu.addAction(theme_action)
+            theme_group.addAction(theme_action)
     
     def open_file(self):
         """Open an existing markdown file"""

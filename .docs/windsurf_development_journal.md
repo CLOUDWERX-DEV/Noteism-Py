@@ -661,5 +661,36 @@
 - Add file operation logging
 - Create advanced file recovery mechanism
 
+## 2024-12-29 Theme Switcher Restoration
+
+#### Theme Management
+- Restored theme switcher in menu bar
+- Reintegrated dynamic theme selection
+- Maintained existing theme management logic
+- Preserved default 'Neon Dark' theme
+
+#### Technical Details
+- Reestablished `&Theme` menu
+- Recreated theme action group
+- Implemented theme selection mechanism
+- Ensured exclusive theme selection
+
+#### Supported Themes
+- Neon Dark (Default)
+- Classic Light
+- Solarized
+- Dracula
+
+#### Implementation Notes
+- Used `QActionGroup` for theme management
+- Maintained lambda connection for theme application
+- Preserved existing `ThemeManager` functionality
+
+#### Next Development Steps
+- Enhance theme preview
+- Add theme customization options
+- Implement theme persistence
+- Create theme import/export functionality
+
 ---
 Made with ❤️ by CLOUDWERX LAB
