@@ -1,0 +1,27 @@
+# Core Python Dependencies
+python-dotenv==1.0.1
+typing-extensions==4.9.0
+
+# Desktop UI Framework
+PyQt5==5.15.11
+PyQtWebEngine==5.15.7  # Lightweight alternative
+
+# Markdown Processing
+markdown==3.5.1
+mistune==3.0.2
+pygments==2.17.2  # For syntax highlighting
+
+# File Handling
+aiofiles==23.2.1
+
+# Styling and Theming
+qdarkstyle==3.2.3
+
+# Development and Testing
+pytest==7.4.4
+black==23.12.1
+mypy==1.7.1
+flake8==6.1.0
+
+# Utilities
+rich==13.7.0
