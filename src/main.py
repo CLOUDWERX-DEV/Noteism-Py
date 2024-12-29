@@ -1,29 +1,45 @@
-import sys
+# Standard Library Imports
 import os
-import re
+import sys
 import shutil
-from typing import List, Optional
+import re
+
+# Markdown and Syntax Highlighting
 import markdown
-import qdarkstyle
-import pygments
 from pygments.lexers import get_lexer_by_name
 from pygments.formatters import HtmlFormatter
 
+# PyQt5 Core Imports
+from PyQt5.QtCore import (
+    Qt, pyqtSignal, QTimer, QDir, QModelIndex, QSize, QUrl
+)
+
+# PyQt5 Widgets Imports
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, 
-    QTextEdit, QAction, QMenuBar, QMenu, QToolBar, QSplitter, 
-    QTreeWidget, QTreeWidgetItem, QHeaderView, QMessageBox, 
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QTabWidget, QTextEdit, QAction, QMenuBar, QMenu, QToolBar, 
+    QSplitter, QTreeWidget, QTreeWidgetItem, QHeaderView, QMessageBox, 
     QInputDialog, QLabel, QStatusBar, QListWidget, QListWidgetItem, 
     QDialog, QFormLayout, QDialogButtonBox, QLineEdit, QPushButton, 
-    QFileSystemModel, QAbstractItemView, QMenu, QFileDialog
+    QFileSystemModel, QAbstractItemView, QFileDialog, QToolButton,
+    QActionGroup
 )
+
+# PyQt5 Web Engine Imports
 from PyQt5.QtWebEngineWidgets import QWebEngineView
+
+# PyQt5 GUI Imports
 from PyQt5.QtGui import (
-    QIcon, QFont, QTextCursor, QColor, QSyntaxHighlighter, 
     QTextCharFormat, QTextDocument, QPalette, QKeySequence, 
-    QTextBlockFormat, QStandardItemModel, QStandardItem
+    QTextBlockFormat, QStandardItemModel, QStandardItem, QFont, 
+    QSyntaxHighlighter, QTextCursor, QIcon, QColor
 )
-from PyQt5.QtCore import Qt, QDir, QModelIndex, QTimer, QSize, QUrl, pyqtSignal
+
+# Typing
+from typing import List, Optional
+
+# QDarkStyle
+import qdarkstyle
 
 class NeonPalette:
     # Dark Theme Color Palette
@@ -176,6 +192,180 @@ class MarkdownToolbar:
         prefix = "1. " if ordered else "- "
         cursor.insertText(f"{prefix}List item\n{prefix}")
         text_edit.setTextCursor(cursor)
+
+    @classmethod
+    def insert_table(cls, text_edit):
+        """Insert a markdown table"""
+        dialog = QDialog()
+        dialog.setWindowTitle("Insert Markdown Table")
+        layout = QFormLayout()
+        
+        rows_input = QLineEdit()
+        rows_input.setPlaceholderText("Number of rows")
+        columns_input = QLineEdit()
+        columns_input.setPlaceholderText("Number of columns")
+        
+        layout.addRow("Rows:", rows_input)
+        layout.addRow("Columns:", columns_input)
+        
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        layout.addRow(buttons)
+        
+        dialog.setLayout(layout)
+        
+        def generate_table():
+            try:
+                num_rows = int(rows_input.text())
+                num_cols = int(columns_input.text())
+                
+                # Create table header
+                header = "| " + " | ".join(["Header"] * num_cols) + " |"
+                separator = "| " + " | ".join(["---"] * num_cols) + " |"
+                
+                # Create rows
+                rows = []
+                for _ in range(num_rows):
+                    row = "| " + " | ".join([""] * num_cols) + " |"
+                    rows.append(row)
+                
+                # Combine all parts
+                table = "\n".join([header, separator] + rows)
+                
+                # Insert table at cursor
+                cursor = text_edit.textCursor()
+                cursor.insertText(table)
+                text_edit.setTextCursor(cursor)
+                
+                dialog.accept()
+            except ValueError:
+                QMessageBox.warning(dialog, "Error", "Please enter valid numbers for rows and columns.")
+        
+        buttons.accepted.connect(generate_table)
+        buttons.rejected.connect(dialog.reject)
+        
+        dialog.exec_()
+    
+    @classmethod
+    def insert_task_list(cls, text_edit):
+        """Insert a markdown task list"""
+        dialog = QDialog()
+        dialog.setWindowTitle("Insert Task List")
+        layout = QFormLayout()
+        
+        tasks_input = QLineEdit()
+        tasks_input.setPlaceholderText("Enter tasks separated by commas")
+        
+        layout.addRow("Tasks:", tasks_input)
+        
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        layout.addRow(buttons)
+        
+        dialog.setLayout(layout)
+        
+        def generate_task_list():
+            tasks = tasks_input.text().split(',')
+            task_list = "\n".join([f"- [ ] {task.strip()}" for task in tasks])
+            
+            # Insert task list at cursor
+            cursor = text_edit.textCursor()
+            cursor.insertText(task_list)
+            text_edit.setTextCursor(cursor)
+            
+            dialog.accept()
+        
+        buttons.accepted.connect(generate_task_list)
+        buttons.rejected.connect(dialog.reject)
+        
+        dialog.exec_()
+    
+    @classmethod
+    def insert_footnote(cls, text_edit):
+        """Insert a markdown footnote"""
+        dialog = QDialog()
+        dialog.setWindowTitle("Insert Footnote")
+        layout = QFormLayout()
+        
+        text_input = QLineEdit()
+        text_input.setPlaceholderText("Footnote text")
+        
+        layout.addRow("Footnote Text:", text_input)
+        
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        layout.addRow(buttons)
+        
+        dialog.setLayout(layout)
+        
+        def insert_footnote():
+            footnote_text = text_input.text()
+            if footnote_text:
+                # Generate a unique footnote reference
+                footnote_ref = f"[^{len(text_edit.toPlainText().split('[^'))}]"
+                
+                # Insert footnote reference in text
+                cursor = text_edit.textCursor()
+                cursor.insertText(f"{footnote_ref}")
+                text_edit.setTextCursor(cursor)
+                
+                # Add footnote at the end of the document
+                cursor.movePosition(QTextCursor.End)
+                cursor.insertText(f"\n\n{footnote_ref}: {footnote_text}")
+                
+                dialog.accept()
+        
+        buttons.accepted.connect(insert_footnote)
+        buttons.rejected.connect(dialog.reject)
+        
+        dialog.exec_()
+    
+    @classmethod
+    def insert_horizontal_rule(cls, text_edit):
+        """Insert a horizontal rule"""
+        cursor = text_edit.textCursor()
+        cursor.insertText("\n\n---\n\n")
+        text_edit.setTextCursor(cursor)
+    
+    @classmethod
+    def insert_blockquote(cls, text_edit):
+        """Insert a blockquote"""
+        dialog = QDialog()
+        dialog.setWindowTitle("Insert Blockquote")
+        layout = QFormLayout()
+        
+        quote_input = QTextEdit()
+        quote_input.setPlaceholderText("Enter blockquote text")
+        
+        layout.addRow("Blockquote:", quote_input)
+        
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        layout.addRow(buttons)
+        
+        dialog.setLayout(layout)
+        
+        def insert_blockquote():
+            quote_text = quote_input.toPlainText()
+            if quote_text:
+                # Prefix each line with '>'
+                blockquote = "\n".join([f"> {line}" for line in quote_text.split('\n')])
+                
+                # Insert blockquote
+                cursor = text_edit.textCursor()
+                cursor.insertText(f"\n\n{blockquote}\n\n")
+                text_edit.setTextCursor(cursor)
+                
+                dialog.accept()
+        
+        buttons.accepted.connect(insert_blockquote)
+        buttons.rejected.connect(dialog.reject)
+        
+        dialog.exec_()
 
 class MarkdownFileExplorer(QTreeWidget):
     file_opened = pyqtSignal(str)
@@ -425,11 +615,153 @@ class MarkdownFileExplorer(QTreeWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Could not delete: {str(e)}")
 
+class ThemeManager:
+    """Manages application themes and styling"""
+    
+    THEMES = {
+        'Neon Dark': {
+            'background': NeonPalette.BACKGROUND_DARK,
+            'text_color': '#FFFFFF',
+            'accent_color': NeonPalette.NEON_BLUE,
+            'secondary_background': NeonPalette.BACKGROUND_SECONDARY
+        },
+        'Classic Light': {
+            'background': '#FFFFFF',
+            'text_color': '#000000',
+            'accent_color': '#3498db',
+            'secondary_background': '#f0f0f0'
+        },
+        'Solarized': {
+            'background': '#002b36',  # Solarized Dark base
+            'text_color': '#839496',
+            'accent_color': '#268bd2',
+            'secondary_background': '#073642'
+        },
+        'Dracula': {
+            'background': '#282a36',
+            'text_color': '#f8f8f2',
+            'accent_color': '#bd93f9',
+            'secondary_background': '#44475a'
+        }
+    }
+    
+    def __init__(self, main_window):
+        """Initialize theme manager"""
+        self.main_window = main_window
+        self.current_theme = 'Neon Dark'
+    
+    def apply_theme(self, theme_name):
+        """Apply selected theme to the entire application"""
+        if theme_name not in self.THEMES:
+            print(f"Theme {theme_name} not found. Defaulting to Neon Dark.")
+            theme_name = 'Neon Dark'
+        
+        theme = self.THEMES[theme_name]
+        
+        # Update global palette
+        NeonPalette.BACKGROUND_DARK = theme['background']
+        NeonPalette.TEXT_COLOR = theme['text_color']
+        NeonPalette.NEON_BLUE = theme['accent_color']
+        NeonPalette.BACKGROUND_SECONDARY = theme['secondary_background']
+        
+        # Reapply stylesheet to all components
+        self._update_file_explorer()
+        self._update_markdown_editors()
+        self._update_toolbars()
+        self._update_menus()
+        
+        # Store current theme
+        self.current_theme = theme_name
+    
+    def _update_file_explorer(self):
+        """Update file explorer styling"""
+        for explorer in self.main_window.findChildren(MarkdownFileExplorer):
+            explorer.setStyleSheet(f"""
+            QTreeWidget {{
+                background-color: {NeonPalette.BACKGROUND_DARK};
+                color: {NeonPalette.TEXT_COLOR};
+                border: 1px solid {NeonPalette.NEON_BLUE};
+                font-family: 'Inter UI', Arial, sans-serif;
+            }}
+            QTreeWidget::item {{
+                background-color: {NeonPalette.BACKGROUND_DARK};
+                color: {NeonPalette.TEXT_COLOR};
+                padding: 5px;
+                margin: 2px;
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {NeonPalette.BACKGROUND_SECONDARY};
+                color: {NeonPalette.NEON_BLUE};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {NeonPalette.NEON_BLUE};
+                color: {NeonPalette.TEXT_COLOR};
+            }}
+            """)
+    
+    def _update_markdown_editors(self):
+        """Update markdown editor styling"""
+        for editor in self.main_window.findChildren(QTextEdit):
+            editor.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {NeonPalette.BACKGROUND_DARK};
+                color: {NeonPalette.TEXT_COLOR};
+                border: 1px solid {NeonPalette.NEON_BLUE};
+                font-family: 'Fira Code';
+                selection-background-color: {NeonPalette.NEON_BLUE};
+                padding: 10px;
+            }}
+            """)
+    
+    def _update_toolbars(self):
+        """Update toolbar styling"""
+        for toolbar in self.main_window.findChildren(QToolBar):
+            toolbar.setStyleSheet(f"""
+            QToolBar {{
+                background-color: {NeonPalette.BACKGROUND_SECONDARY};
+                color: {NeonPalette.TEXT_COLOR};
+                border: none;
+            }}
+            QToolButton {{
+                background-color: {NeonPalette.BACKGROUND_SECONDARY};
+                color: {NeonPalette.TEXT_COLOR};
+                border: none;
+                padding: 5px;
+            }}
+            QToolButton:hover {{
+                background-color: {NeonPalette.NEON_BLUE};
+                color: {NeonPalette.TEXT_COLOR};
+            }}
+            """)
+    
+    def _update_menus(self):
+        """Update menu styling"""
+        for menu in self.main_window.findChildren(QMenu):
+            menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {NeonPalette.BACKGROUND_DARK};
+                color: {NeonPalette.TEXT_COLOR};
+                border: 1px solid {NeonPalette.NEON_BLUE};
+            }}
+            QMenu::item {{
+                background-color: {NeonPalette.BACKGROUND_DARK};
+                color: {NeonPalette.TEXT_COLOR};
+                padding: 5px;
+            }}
+            QMenu::item:selected {{
+                background-color: {NeonPalette.NEON_BLUE};
+                color: {NeonPalette.TEXT_COLOR};
+            }}
+            """)
+
 class NoteismMarkdownEditor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Noteism - Markdown Editor")
         self.resize(1600, 900)
+        
+        # Initialize theme manager
+        self.theme_manager = ThemeManager(self)
         
         # Set global dark theme and styling
         self.setStyleSheet(f"""
@@ -688,8 +1020,6 @@ class NoteismMarkdownEditor(QMainWindow):
                     font-family: 'Inter UI', Arial, sans-serif; 
                     padding: 20px;
                     margin: 0;
-                    scrollbar-color: {NeonPalette.NEON_BLUE} {NeonPalette.BACKGROUND_SECONDARY};
-                    scrollbar-width: thin;
                 }}
                 ::-webkit-scrollbar {{
                     width: 10px;
@@ -777,6 +1107,22 @@ class NoteismMarkdownEditor(QMainWindow):
         # View Menu
         view_menu = menu_bar.addMenu("&View")
         
+        # Add Theme Menu
+        theme_menu = menu_bar.addMenu("&Theme")
+        
+        # Create theme actions
+        theme_group = QActionGroup(self)
+        theme_group.setExclusive(True)
+        
+        for theme_name in ThemeManager.THEMES.keys():
+            theme_action = QAction(theme_name, self, checkable=True)
+            theme_action.setChecked(theme_name == 'Neon Dark')  # Default theme
+            theme_action.triggered.connect(
+                lambda checked, name=theme_name: self.theme_manager.apply_theme(name)
+            )
+            theme_menu.addAction(theme_action)
+            theme_group.addAction(theme_action)
+    
     def create_toolbar(self):
         toolbar = QToolBar("Markdown Formatting")
         self.addToolBar(toolbar)
@@ -829,6 +1175,26 @@ class NoteismMarkdownEditor(QMainWindow):
         code_block_action = QAction("Code Block", self)
         code_block_action.triggered.connect(lambda: MarkdownToolbar.insert_code_block(self.current_editor()))
         toolbar.addAction(code_block_action)
+        
+        table_action = QAction("Insert Table", self)
+        table_action.triggered.connect(lambda: MarkdownToolbar.insert_table(self.current_editor()))
+        toolbar.addAction(table_action)
+        
+        task_list_action = QAction("Insert Task List", self)
+        task_list_action.triggered.connect(lambda: MarkdownToolbar.insert_task_list(self.current_editor()))
+        toolbar.addAction(task_list_action)
+        
+        footnote_action = QAction("Insert Footnote", self)
+        footnote_action.triggered.connect(lambda: MarkdownToolbar.insert_footnote(self.current_editor()))
+        toolbar.addAction(footnote_action)
+        
+        horizontal_rule_action = QAction("Insert Horizontal Rule", self)
+        horizontal_rule_action.triggered.connect(lambda: MarkdownToolbar.insert_horizontal_rule(self.current_editor()))
+        toolbar.addAction(horizontal_rule_action)
+        
+        blockquote_action = QAction("Insert Blockquote", self)
+        blockquote_action.triggered.connect(lambda: MarkdownToolbar.insert_blockquote(self.current_editor()))
+        toolbar.addAction(blockquote_action)
 
     def create_status_bar(self):
         status_bar = self.statusBar()
